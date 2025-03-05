@@ -1,0 +1,85 @@
+package bb
+
+import (
+	"testing"
+)
+
+func TestRotWord(t *testing.T) {
+	testCases := []struct {
+		in       uint32
+		expected uint32
+	}{
+		{0x00010203, 0x01020300},
+		{0x00000000, 0x00000000},
+		{0x01000000, 0x00000001},
+		{0x00010000, 0x01000000},
+		{0x00000100, 0x00010000},
+		{0xfffefdfc, 0xfefdfcff},
+	}
+
+	for _, tc := range testCases {
+		got := RotWord(tc.in)
+		if got != tc.expected {
+			t.Errorf("got %08x expected %08x", got, tc.expected)
+		}
+	}
+}
+
+func TestWordToBytes(t *testing.T) {
+	testCases := []struct {
+		in       uint32
+		expected [4]byte
+	}{
+		{0x00010203, [4]byte{0x00, 0x01, 0x02, 0x03}},
+		{0xfffefdfc, [4]byte{0xff, 0xfe, 0xfd, 0xfc}},
+	}
+
+	for _, tc := range testCases {
+		got := WordToBytes(tc.in)
+		if got != tc.expected {
+			t.Errorf("got %08x expected %v", got, tc.expected)
+		}
+	}
+}
+
+func TestRcon(t *testing.T) {
+	testCases := []struct {
+		in       byte
+		expected uint32
+	}{
+		{1, 0x01000000},
+		{2, 0x02000000},
+		{3, 0x04000000},
+		{4, 0x08000000},
+	}
+
+	for _, tc := range testCases {
+		got := Rcon(tc.in)
+		if got != tc.expected {
+			t.Errorf("got %08x expected %v", got, tc.expected)
+		}
+	}
+}
+
+func TestExpandKey(t *testing.T) {
+	keyCols := [4]uint32{0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c}
+	key := ColsToKey(keyCols)
+	expected := [11]Key{
+		ColsToKey([4]uint32{0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c}),
+		ColsToKey([4]uint32{0xa0fafe17, 0x88542cb1, 0x23a33939, 0x2a6c7605}),
+		ColsToKey([4]uint32{0xf2c295f2, 0x7a96b943, 0x5935807a, 0x7359f67f}),
+		ColsToKey([4]uint32{0x3d80477d, 0x4716fe3e, 0x1e237e44, 0x6d7a883b}),
+		ColsToKey([4]uint32{0xef44a541, 0xa8525b7f, 0xb671253b, 0xdb0bad00}),
+		ColsToKey([4]uint32{0xd4d1c6f8, 0x7c839d87, 0xcaf2b8bc, 0x11f915bc}),
+		ColsToKey([4]uint32{0x6d88a37a, 0x110b3efd, 0xdbf98641, 0xca0093fd}),
+		ColsToKey([4]uint32{0x4e54f70e, 0x5f5fc9f3, 0x84a64fb2, 0x4ea6dc4f}),
+		ColsToKey([4]uint32{0xead27321, 0xb58dbad2, 0x312bf560, 0x7f8d292f}),
+		ColsToKey([4]uint32{0xac7766f3, 0x19fadc21, 0x28d12941, 0x575c006e}),
+		ColsToKey([4]uint32{0xd014f9a8, 0xc9ee2589, 0xe13f0cc8, 0xb6630ca6}),
+	}
+
+	got := KeyExpansion(key)
+	if got != expected {
+		t.Errorf("got %v expected %v", got, expected)
+	}
+}
