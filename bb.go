@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/jbert/bb/ff"
 )
@@ -228,18 +229,48 @@ func (state State) SubBytes() State {
 	return ret
 }
 
-func (state State) ShiftRows() State {
-	shiftCol := func(step int, col []byte) []byte {
-		var ret [4]byte
-		for i, b := range col {
-			j := (4 + i - step) % 4
-			ret[j] = b
-		}
-		return ret[:]
+var sbox_de [256]byte
+var sbox_de_init sync.Once
+
+func initSboxDE() {
+	// Invert the sbox
+	for i, v := range sbox_en {
+		sbox_de[v] = byte(i)
 	}
+}
+
+func (state State) SubBytesInv() State {
+	if sbox_de[0] == 0 {
+		sbox_de_init.Do(initSboxDE)
+	}
+	var ret State
+	for i, b := range state {
+		ret[i] = sbox_de[b]
+	}
+	return ret
+}
+
+func shiftCol(step int, col []byte) []byte {
+	var ret [4]byte
+	for i, b := range col {
+		j := (4 + i - step) % 4
+		ret[j] = b
+	}
+	return ret[:]
+}
+
+func (state State) ShiftRows() State {
 	var ret State
 	for i := range 4 {
 		copy(ret[i*4:(i+1)*4], shiftCol(i, state[i*4:(i+1)*4]))
+	}
+	return ret
+}
+
+func (state State) ShiftRowsInv() State {
+	var ret State
+	for i := range 4 {
+		copy(ret[i*4:(i+1)*4], shiftCol(-i, state[i*4:(i+1)*4]))
 	}
 	return ret
 }
@@ -290,6 +321,10 @@ func (state State) MixColumnsInv() State {
 	return ColsToState(ret)
 }
 
+func (state State) AddRoundKeyInv(k Key) State {
+	return state.AddRoundKey(k) // Self inverse
+}
+
 func (state State) AddRoundKey(k Key) State {
 	var ret State
 	keyState := BlockToState(k)
@@ -328,5 +363,15 @@ func encryptState(state State, key Key) (State, error) {
 	}
 	//	fmt.Printf("round [10].start %s\n", state.HexString())
 	state = state.SubBytes().ShiftRows().AddRoundKey(roundKeys[10])
+	return state, nil
+}
+
+func decryptState(ctxt State, key Key) (State, error) {
+	roundKeys := KeyExpansion(key)
+	state := ctxt.AddRoundKeyInv(roundKeys[10]).ShiftRowsInv().SubBytesInv()
+	for round := 9; round > 0; round-- {
+		state = state.AddRoundKeyInv(roundKeys[round]).MixColumnsInv().ShiftRowsInv().SubBytesInv()
+	}
+	state = state.AddRoundKey(roundKeys[0])
 	return state, nil
 }

@@ -102,6 +102,11 @@ func TestSubBytes(t *testing.T) {
 	if got != expected {
 		t.Errorf("Subbytes failed")
 	}
+
+	inv := got.SubBytesInv()
+	if inv != in {
+		t.Errorf("SubBytesInv failed")
+	}
 }
 
 func TestShiftRows(t *testing.T) {
@@ -121,6 +126,11 @@ func TestShiftRows(t *testing.T) {
 
 	if got != expected {
 		t.Errorf("ShiftRows failed got:\n%s\nexpected\n%s\n", got, expected)
+	}
+
+	inv := got.ShiftRowsInv()
+	if inv != in {
+		t.Errorf("ShiftRowsInv failed got:\n%s\nexpected\n%s\n", got, expected)
 	}
 }
 
@@ -169,6 +179,11 @@ func TestAddRoundKey(t *testing.T) {
 	if got != expected {
 		t.Errorf("AddRoundKey failed got:\n%s\nexpected\n%s\n", got, expected)
 	}
+
+	inv := got.AddRoundKeyInv(k)
+	if inv != in {
+		t.Errorf("Failed AddRoundKeyInv")
+	}
 }
 
 func TestComposite(t *testing.T) {
@@ -208,6 +223,16 @@ func TestEncrypt(t *testing.T) {
 	})
 	if got != expected {
 		t.Errorf("Encrypt failed got:\n%s\nexpected\n%s\n", got, expected)
+	}
+
+	invState, err := decryptState(got, key)
+	if err != nil {
+		t.Fatalf("Can't decrypt block: %s", err)
+	}
+	invBlock := StateToBlock(invState)
+	inv := string(invBlock[:])
+	if inv != ptxt {
+		t.Errorf("Decrypt doesn't invert")
 	}
 
 }
