@@ -12,15 +12,17 @@ type Poly byte
 
 func NewFromUint16(r uint16) Poly {
 	aesX8 := uint16(0b00011011)
-	for i := 15; i >= 8; i-- {
-		mask := uint16(1 << i)
-		if r&mask > 0 {
-			r += aesX8 << (i - 8)
+	for r > 255 {
+		//		fmt.Printf("JB r %016b\n", r)
+		for i := 15; i >= 8; i-- {
+			//			fmt.Printf("JB i %d r %016b\n", i, r)
+			mask := uint16(1 << i)
+			if r&mask > 0 {
+				r ^= aesX8 << (i - 8)
+			}
+			r = r & ^mask
+			//			fmt.Printf("JB new r %016b\n", r)
 		}
-		r = r & ^mask
-	}
-	if r > 255 {
-		panic(fmt.Sprintf("logic error: r %04x", r))
 	}
 	return Poly(r)
 }
