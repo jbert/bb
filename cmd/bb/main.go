@@ -1,18 +1,14 @@
 package main
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/jbert/bb"
-
-	"fmt"
 )
 
 func main() {
-	ptxt := "this is one text"
-	state, err := bb.PlainBlockToState(ptxt)
-	if err != nil {
-		log.Fatal(err)
+	for i := range 5 {
+		rc := bb.Rcon(byte(i))
+		fmt.Printf("rcon(%d) %02X\n", i, rc>>24)
 	}
-	fmt.Printf("state\n%s", state)
 }

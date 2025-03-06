@@ -57,7 +57,7 @@ func TestRcon(t *testing.T) {
 	for _, tc := range testCases {
 		got := Rcon(tc.in)
 		if got != tc.expected {
-			t.Errorf("got %08x expected %v", got, tc.expected)
+			t.Errorf("got %08x expected %08x", got, tc.expected)
 		}
 	}
 }
