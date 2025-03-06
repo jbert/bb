@@ -1,6 +1,7 @@
 package bb
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -81,7 +82,7 @@ func Rcon(b byte) uint32 {
 type Key [16]byte
 
 func (k Key) String() string {
-	return fmt.Sprintf("%32xd", k)
+	return hex.EncodeToString(k[:])
 }
 
 func ColsToKey(cols [4]uint32) Key {
@@ -153,4 +154,12 @@ func (s State) String() string {
 		sb.WriteString(fmt.Sprintf("%02x %02x %02x %02x\n", s[row*4+0], s[row*4+1], s[row*4+2], s[row*4+3]))
 	}
 	return sb.String()
+}
+
+func SubBytes(state State) State {
+	var ret State
+	for i, b := range state {
+		ret[i] = sbox_en[b]
+	}
+	return ret
 }
