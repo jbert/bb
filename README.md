@@ -1,1 +1,2 @@
-Working along with [block breakers](https://davidwong.fr/blockbreakers/aes.html)
+Working along with [block breakers](https://davidwong.fr/blockbreakers/aes.html) to implement AES from
+scratch.
