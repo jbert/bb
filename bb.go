@@ -85,7 +85,27 @@ func (k Key) String() string {
 	return hex.EncodeToString(k[:])
 }
 
-func ColsToKey(cols [4]uint32) Key {
+func MustKeyFromHex(hexStr string) Key {
+	key, err := KeyFromHex(hexStr)
+	if err != nil {
+		panic(fmt.Sprintf("KeyFromHex failed: %s", err))
+	}
+	return key
+}
+
+func KeyFromHex(hexStr string) (Key, error) {
+	var k Key
+	if len(hexStr) != 32 {
+		return k, fmt.Errorf("Hex key must be 32 bytes, not %d", len(hexStr))
+	}
+	bs, err := hex.DecodeString(hexStr)
+	if err != nil {
+		return k, fmt.Errorf("Failed to decode as hex: %w", err)
+	}
+	return Key(bs), nil
+}
+
+func colsToKey(cols [4]uint32) Key {
 	var k [16]byte
 	for i, col := range cols {
 		bs := WordToBytes(col)
@@ -96,7 +116,7 @@ func ColsToKey(cols [4]uint32) Key {
 	return k
 }
 
-func KeyToCols(k Key) [4]uint32 {
+func keyToCols(k Key) [4]uint32 {
 	var cols [4]uint32
 	for i := range cols {
 		j := i * 4
@@ -114,7 +134,7 @@ func KeyExpansion(k Key) ExpandedKey {
 			expKey[0] = k
 			continue
 		}
-		prevCols := KeyToCols(expKey[round-1])
+		prevCols := keyToCols(expKey[round-1])
 		v := RotWord(prevCols[3])
 		v = SubWord(v)
 		v ^= prevCols[0]
@@ -127,25 +147,53 @@ func KeyExpansion(k Key) ExpandedKey {
 			}
 			cols[j] = cols[j-1] ^ prevCols[j]
 		}
-		expKey[round] = ColsToKey(cols)
+		expKey[round] = colsToKey(cols)
 	}
 	return expKey
 }
 
 type State [16]byte
 
-func PlainBlockToState(ptxt string) (State, error) {
-	var s State
-	if len(ptxt) != 16 {
-		return s, errors.New(fmt.Sprintf("plain text is not one block, length %d not %d", len(ptxt), 16))
+func StateToBlock(state State) [16]byte {
+	var bs [16]byte
+	for i := range state {
+		row := i % 4
+		col := i / 4
+		bs[row*4+col] = state[i]
 	}
-	bs := []byte(ptxt)
+	return bs
+}
+
+func BlockToState(block [16]byte) State {
+	var s State
+	for i := range block {
+		row := i % 4
+		col := i / 4
+		s[row*4+col] = block[i]
+	}
+	return s
+}
+
+func BytesToState(bs []byte) (State, error) {
+	var s State
+	if len(bs) != 16 {
+		return s, errors.New(fmt.Sprintf("plain text bytes is not one block, length %d not %d", len(bs), 16))
+	}
 	for i := range bs {
 		row := i % 4
 		col := i / 4
 		s[row*4+col] = bs[i]
 	}
 	return s, nil
+}
+
+func StringToState(ptxt string) (State, error) {
+	var s State
+	if len(ptxt) != 16 {
+		return s, errors.New(fmt.Sprintf("plain text is not one block, length %d not %d", len(ptxt), 16))
+	}
+	bs := []byte(ptxt)
+	return BytesToState(bs)
 }
 
 func ColsToState(cols [4][4]byte) State {
@@ -166,6 +214,15 @@ func (state State) Cols() [4][4]byte {
 		}
 	}
 	return cols
+}
+
+func (state State) HexString() string {
+	cols := state.Cols()
+	s := ""
+	for _, col := range cols {
+		s += hex.EncodeToString(col[:])
+	}
+	return s
 }
 
 func (state State) String() string {
@@ -275,8 +332,41 @@ func (state State) MixColumns() State {
 
 func (state State) AddRoundKey(k Key) State {
 	var ret State
+	keyState := BlockToState(k)
+	// Key is stored linearly, but we need it in column-first format
 	for i := range state {
-		ret[i] = state[i] ^ k[i]
+		ret[i] = state[i] ^ keyState[i]
 	}
 	return ret
+}
+
+func EncryptBlockBytes(ptxtBytes []byte, key Key) (State, error) {
+	state, err := BytesToState(ptxtBytes)
+	if err != nil {
+		return state, err
+	}
+	return encryptState(state, key)
+}
+
+func EncryptBlock(ptxt string, key Key) (State, error) {
+	state, err := StringToState(ptxt)
+	if err != nil {
+		return state, err
+	}
+	return encryptState(state, key)
+}
+
+func encryptState(state State, key Key) (State, error) {
+	roundKeys := KeyExpansion(key)
+	//	fmt.Printf("round [ 0].input %s\n", state.HexString())
+	//	fmt.Printf("round [ 0].k_sch %s\n", key)
+	state = state.AddRoundKey(roundKeys[0])
+	for i := range 9 {
+		round := i + 1
+		//		fmt.Printf("round [%2d].start %s\n", round, state.HexString())
+		state = state.SubBytes().ShiftRows().MixColumns().AddRoundKey(roundKeys[round])
+	}
+	//	fmt.Printf("round [10].start %s\n", state.HexString())
+	state = state.SubBytes().ShiftRows().AddRoundKey(roundKeys[10])
+	return state, nil
 }

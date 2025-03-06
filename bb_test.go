@@ -1,6 +1,7 @@
 package bb
 
 import (
+	"encoding/hex"
 	"testing"
 )
 
@@ -62,20 +63,19 @@ func TestRcon(t *testing.T) {
 }
 
 func TestExpandKey(t *testing.T) {
-	keyCols := [4]uint32{0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c}
-	key := ColsToKey(keyCols)
+	key := MustKeyFromHex("2b7e151628aed2a6abf7158809cf4f3c")
 	expected := [11]Key{
-		ColsToKey([4]uint32{0x2b7e1516, 0x28aed2a6, 0xabf71588, 0x09cf4f3c}),
-		ColsToKey([4]uint32{0xa0fafe17, 0x88542cb1, 0x23a33939, 0x2a6c7605}),
-		ColsToKey([4]uint32{0xf2c295f2, 0x7a96b943, 0x5935807a, 0x7359f67f}),
-		ColsToKey([4]uint32{0x3d80477d, 0x4716fe3e, 0x1e237e44, 0x6d7a883b}),
-		ColsToKey([4]uint32{0xef44a541, 0xa8525b7f, 0xb671253b, 0xdb0bad00}),
-		ColsToKey([4]uint32{0xd4d1c6f8, 0x7c839d87, 0xcaf2b8bc, 0x11f915bc}),
-		ColsToKey([4]uint32{0x6d88a37a, 0x110b3efd, 0xdbf98641, 0xca0093fd}),
-		ColsToKey([4]uint32{0x4e54f70e, 0x5f5fc9f3, 0x84a64fb2, 0x4ea6dc4f}),
-		ColsToKey([4]uint32{0xead27321, 0xb58dbad2, 0x312bf560, 0x7f8d292f}),
-		ColsToKey([4]uint32{0xac7766f3, 0x19fadc21, 0x28d12941, 0x575c006e}),
-		ColsToKey([4]uint32{0xd014f9a8, 0xc9ee2589, 0xe13f0cc8, 0xb6630ca6}),
+		MustKeyFromHex("2b7e151628aed2a6abf7158809cf4f3c"),
+		MustKeyFromHex("a0fafe1788542cb123a339392a6c7605"),
+		MustKeyFromHex("f2c295f27a96b9435935807a7359f67f"),
+		MustKeyFromHex("3d80477d4716fe3e1e237e446d7a883b"),
+		MustKeyFromHex("ef44a541a8525b7fb671253bdb0bad00"),
+		MustKeyFromHex("d4d1c6f87c839d87caf2b8bc11f915bc"),
+		MustKeyFromHex("6d88a37a110b3efddbf98641ca0093fd"),
+		MustKeyFromHex("4e54f70e5f5fc9f384a64fb24ea6dc4f"),
+		MustKeyFromHex("ead27321b58dbad2312bf5607f8d292f"),
+		MustKeyFromHex("ac7766f319fadc2128d12941575c006e"),
+		MustKeyFromHex("d014f9a8c9ee2589e13f0cc8b6630ca6"),
 	}
 
 	got := KeyExpansion(key)
@@ -157,16 +157,77 @@ func TestAddRoundKey(t *testing.T) {
 		0x28, 0x41, 0x25, 0x57,
 		0xb8, 0xab, 0x90, 0xa2,
 	})
-	k := Key([]byte{
-		0xd6, 0xd2, 0xda, 0xd6,
-		0xaa, 0xaf, 0xa6, 0xab,
-		0x74, 0x72, 0x78, 0x76,
-		0xfd, 0xfa, 0xf1, 0xfe,
-	})
+	k := MustKeyFromHex("d6aa74fdd2af72fadaa678f1d6ab76fe")
 
 	got := in.AddRoundKey(k)
 
 	if got != expected {
 		t.Errorf("AddRoundKey failed got:\n%s\nexpected\n%s\n", got, expected)
 	}
+}
+
+func TestComposite(t *testing.T) {
+	in := State([]byte{
+		0x00, 0x04, 0x08, 0x0c,
+		0x01, 0x05, 0x09, 0x0d,
+		0x02, 0x06, 0x0a, 0x0e,
+		0x03, 0x07, 0x0b, 0x0f,
+	})
+	expected := State([]byte{
+		0xbc, 0xfe, 0x6a, 0xf1,
+		0xc0, 0xc2, 0x7f, 0x37,
+		0x28, 0x41, 0x25, 0x57,
+		0xb8, 0xab, 0x90, 0xa2,
+	})
+	k := MustKeyFromHex("d6aa74fdd2af72fadaa678f1d6ab76fe")
+
+	got := in.SubBytes().ShiftRows().MixColumns().AddRoundKey(k)
+	if got != expected {
+		t.Errorf("Composite failed got:\n%s\nexpected\n%s\n", got, expected)
+	}
+}
+
+func TestEncrypt(t *testing.T) {
+	ptxt := "theblockbreakers"
+	key := MustKeyFromHex("2b7e151628aed2a6abf7158809cf4f3c")
+	got, err := EncryptBlock(ptxt, key)
+	if err != nil {
+		t.Fatalf("Can't encrypt block: %s", err)
+	}
+
+	expected := State([]byte{
+		0xc6, 0x02, 0x23, 0x2f,
+		0x9f, 0x5a, 0x93, 0x05,
+		0x25, 0x9e, 0xf6, 0xb7,
+		0xd0, 0xf3, 0x3e, 0x47,
+	})
+	if got != expected {
+		t.Errorf("Encrypt failed got:\n%s\nexpected\n%s\n", got, expected)
+	}
+
+}
+
+func TestAESVector(t *testing.T) {
+	key, err := KeyFromHex("000102030405060708090a0b0c0d0e0f")
+	if err != nil {
+		t.Fatalf("Can't create key: %s", err)
+	}
+	ptxtBytes, err := hex.DecodeString("00112233445566778899aabbccddeeff")
+	if err != nil {
+		t.Fatalf("Can't decode plaintext hex: %s", err)
+	}
+	gotState, err := EncryptBlockBytes(ptxtBytes, key)
+	if err != nil {
+		t.Fatalf("Can't encrypt block: %s", err)
+	}
+	got := StateToBlock(gotState)
+
+	expected := MustKeyFromHex("69c4e0d86a7b0430d8cdb78070b4c55a")
+	if err != nil {
+		t.Fatalf("Can't hex decode expected: %s", err)
+	}
+	if got != expected {
+		t.Errorf("Encrypt failed got:\n%s\nexpected\n%s\n", got, expected)
+	}
+
 }
