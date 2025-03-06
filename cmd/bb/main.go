@@ -1,7 +1,18 @@
 package main
 
-import "fmt"
+import (
+	"log"
+
+	"github.com/jbert/bb"
+
+	"fmt"
+)
 
 func main() {
-	fmt.Println("vim-go")
+	ptxt := "this is one text"
+	state, err := bb.PlainBlockToState(ptxt)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("state\n%s", state)
 }

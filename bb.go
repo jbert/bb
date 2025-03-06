@@ -1,5 +1,11 @@
 package bb
 
+import (
+	"errors"
+	"fmt"
+	"strings"
+)
+
 // 00010203 -> 01020300
 func RotWord(n uint32) uint32 {
 	b := n & 0xff000000
@@ -72,7 +78,11 @@ func Rcon(b byte) uint32 {
 	return BytesToWord([4]byte{rcon[b], 0, 0, 0})
 }
 
-type Key = [16]byte
+type Key [16]byte
+
+func (k Key) String() string {
+	return fmt.Sprintf("%32xd", k)
+}
 
 func ColsToKey(cols [4]uint32) Key {
 	var k [16]byte
@@ -119,4 +129,28 @@ func KeyExpansion(k Key) ExpandedKey {
 		expKey[round] = ColsToKey(cols)
 	}
 	return expKey
+}
+
+type State [16]byte
+
+func PlainBlockToState(ptxt string) (State, error) {
+	var s State
+	if len(ptxt) != 16 {
+		return s, errors.New(fmt.Sprintf("plain text is not one block, length %d not %d", len(ptxt), 16))
+	}
+	bs := []byte(ptxt)
+	for i := range bs {
+		col := i / 4
+		row := i % 4
+		s[row*4+col] = bs[i]
+	}
+	return s, nil
+}
+
+func (s State) String() string {
+	sb := strings.Builder{}
+	for row := range 4 {
+		sb.WriteString(fmt.Sprintf("%02x %02x %02x %02x\n", s[row*4+0], s[row*4+1], s[row*4+2], s[row*4+3]))
+	}
+	return sb.String()
 }
