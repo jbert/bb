@@ -156,10 +156,26 @@ func (s State) String() string {
 	return sb.String()
 }
 
-func SubBytes(state State) State {
+func (state State) SubBytes() State {
 	var ret State
 	for i, b := range state {
 		ret[i] = sbox_en[b]
+	}
+	return ret
+}
+
+func (state State) ShiftRows() State {
+	shiftCol := func(step int, col []byte) []byte {
+		var ret [4]byte
+		for i, b := range col {
+			j := (4 + i - step) % 4
+			ret[j] = b
+		}
+		return ret[:]
+	}
+	var ret State
+	for i := range 4 {
+		copy(ret[i*4:(i+1)*4], shiftCol(i, state[i*4:(i+1)*4]))
 	}
 	return ret
 }
