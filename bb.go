@@ -272,3 +272,11 @@ func (state State) MixColumns() State {
 	}
 	return ColsToState(ret)
 }
+
+func (state State) AddRoundKey(k Key) State {
+	var ret State
+	for i := range state {
+		ret[i] = state[i] ^ k[i]
+	}
+	return ret
+}
