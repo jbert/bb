@@ -142,6 +142,11 @@ func TestMixColumns(t *testing.T) {
 	if got != expected {
 		t.Errorf("MixColumns failed got:\n%s\nexpected\n%s\n", got, expected)
 	}
+
+	inv := got.MixColumnsInv()
+	if inv != in {
+		t.Errorf("MixColumnsInv failed got:\n%s\nexpected\n%s\n", got, expected)
+	}
 }
 
 func TestAddRoundKey(t *testing.T) {

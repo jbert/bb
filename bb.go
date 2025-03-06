@@ -267,6 +267,29 @@ func (state State) MixColumns() State {
 	return ColsToState(ret)
 }
 
+func mixColInv(a [4]byte) [4]byte {
+	var b [4]byte
+
+	// poly-multiply
+	pm := func(a byte, b byte) byte {
+		return byte(ff.Poly(a).Mul(ff.Poly(b)))
+	}
+	b[0] = pm(14, a[0]) ^ pm(11, a[1]) ^ pm(13, a[2]) ^ pm(9, a[3])
+	b[1] = pm(9, a[0]) ^ pm(14, a[1]) ^ pm(11, a[2]) ^ pm(13, a[3])
+	b[2] = pm(13, a[0]) ^ pm(9, a[1]) ^ pm(14, a[2]) ^ pm(11, a[3])
+	b[3] = pm(11, a[0]) ^ pm(13, a[1]) ^ pm(9, a[2]) ^ pm(14, a[3])
+	return b
+}
+
+func (state State) MixColumnsInv() State {
+	cols := state.Cols()
+	var ret [4][4]byte
+	for i, col := range cols {
+		ret[i] = mixColInv(col)
+	}
+	return ColsToState(ret)
+}
+
 func (state State) AddRoundKey(k Key) State {
 	var ret State
 	keyState := BlockToState(k)
